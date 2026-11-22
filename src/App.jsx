@@ -1422,15 +1422,34 @@ function App() {
 
   const AdminLoginPage = () => (
     <main className="admin-login-page">
-      <form className="admin-login-card" onSubmit={(event) => { event.preventDefault(); setAdminAuthenticated(true); go('admin'); }}>
-        <button type="button" className="admin-login-brand" onClick={() => go('home')}>localbrand<span>.</span></button>
-        <p className="eyebrow">STUDIO ADMIN · CAMBODIA</p>
+      <div className="admin-login-card animate-scale-up">
+        <button type="button" className="admin-login-brand" onClick={() => go('home')}>
+          localbrand<span>.</span>
+        </button>
+        <div className="admin-login-badge">
+          <span>🔐</span> STUDIO ADMIN · CAMBODIA
+        </div>
         <h1>Welcome back<span>.</span></h1>
-        <p className="admin-login-copy">Sign in to take a look around your store.</p>
-        <label>Email address<input required type="email" placeholder="admin@localbrand.com.kh" /></label>
-        <label>Password<input required type="password" minLength="8" placeholder="Your password" /></label>
-        <button className="button button-dark full-button">Sign in to your store <Icon name="arrow" size={16} /></button>
-      </form>
+        <p className="admin-login-copy">
+          {lang === 'km' ? 'ចូលគ្រប់គ្រងហាង ទំនិញ និងការដឹកជញ្ជូន។' : 'Sign in to manage products, orders & payments.'}
+        </p>
+        <form onSubmit={(event) => { event.preventDefault(); setAdminAuthenticated(true); go('admin'); }}>
+          <label>
+            {lang === 'km' ? 'អ៊ីមែល (Email address)' : 'Email address'}
+            <input required type="email" defaultValue="admin@localbrand.com.kh" placeholder="admin@localbrand.com.kh" />
+          </label>
+          <label>
+            {lang === 'km' ? 'ពាក្យសម្ងាត់ (Password)' : 'Password'}
+            <input required type="password" minLength="6" defaultValue="admin123" placeholder="Your password" />
+          </label>
+          <button className="button button-dark full-button" type="submit">
+            {lang === 'km' ? 'ចូលប្រព័ន្ធគ្រប់គ្រង' : 'Sign in to your store'} <Icon name="arrow" size={16} />
+          </button>
+        </form>
+        <button type="button" className="admin-login-back-btn" onClick={() => go('home')}>
+          ← {lang === 'km' ? 'ត្រឡប់ទៅកាន់ហាងទំនិញវិញ' : 'Back to store'}
+        </button>
+      </div>
     </main>
   );
 
@@ -1571,9 +1590,6 @@ function App() {
         <div className="admin-entry">
           <button onClick={openAdmin}>Store admin <span>↗</span></button>
         </div>
-      )}
-      {page === 'admin-login' && (
-        <button className="admin-login-back" onClick={() => go('home')}>←&nbsp; Back to store</button>
       )}
       {page === 'admin' && (
         <button className="admin-logout" onClick={() => { setAdminAuthenticated(false); go('home'); }}>Log out&nbsp; ↗</button>
