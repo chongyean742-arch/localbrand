@@ -3225,3 +3225,204 @@ button { cursor: pointer; }
   transform: translateY(-4px);
   border-color: var(--blue-primary);
 }
+
+/* ==========================================================================
+   ENHANCED "SO COOL" ANIMATIONS & MICRO-INTERACTIONS
+   ========================================================================== */
+
+/* Hero Ambient Glowing Orbs */
+.hero-glow-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hero-glow-orb-1 {
+  top: -15%;
+  right: 18%;
+  width: 480px;
+  height: 480px;
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.22) 0%, rgba(59, 130, 246, 0.08) 50%, transparent 70%);
+  animation: heroAura1 9s ease-in-out infinite alternate;
+}
+
+.hero-glow-orb-2 {
+  bottom: -20%;
+  left: 20%;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(14, 165, 233, 0.18) 0%, rgba(37, 99, 235, 0.05) 50%, transparent 70%);
+  animation: heroAura2 11s ease-in-out infinite alternate;
+}
+
+@keyframes heroAura1 {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-35px, 25px) scale(1.12); }
+  100% { transform: translate(25px, -20px) scale(0.92); }
+}
+
+@keyframes heroAura2 {
+  0% { transform: translate(0, 0) scale(0.95); }
+  50% { transform: translate(35px, -25px) scale(1.15); }
+  100% { transform: translate(-20px, 20px) scale(1); }
+}
+
+/* Radiant Shimmer Gradient Text on Highlight Words */
+.hero h1 em,
+.section-heading h2 em,
+.story-copy h2 em,
+.promo-text h2 em {
+  background: linear-gradient(120deg, #1d4ed8 0%, #2563eb 25%, #38bdf8 50%, #2563eb 75%, #1d4ed8 100%);
+  background-size: 250% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: textShimmer 6s linear infinite;
+  font-style: italic;
+  font-weight: 800;
+}
+
+[data-theme="dark"] .hero h1 em,
+[data-theme="dark"] .section-heading h2 em,
+[data-theme="dark"] .story-copy h2 em,
+[data-theme="dark"] .promo-text h2 em {
+  background: linear-gradient(120deg, #60a5fa 0%, #93c5fd 25%, #38bdf8 50%, #93c5fd 75%, #60a5fa 100%);
+  background-size: 250% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+@keyframes textShimmer {
+  0% { background-position: 0% center; }
+  100% { background-position: 250% center; }
+}
+
+/* Announcement Live Beacon */
+.live-beacon {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.75);
+  animation: beaconPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+@keyframes beaconPulse {
+  0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.8); transform: scale(0.95); }
+  70% { box-shadow: 0 0 0 9px rgba(34, 197, 94, 0); transform: scale(1.15); }
+  100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); transform: scale(0.95); }
+}
+
+/* Card Gloss Flare / Shine Sweep on Hover */
+.product-image-wrap,
+.category-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.product-image-wrap::before,
+.category-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -140%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  transform: skewX(-25deg);
+  transition: left 0.75s ease;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.product-card:hover .product-image-wrap::before,
+.category-card:hover::before {
+  left: 160%;
+}
+
+/* 3D Perspective Hero Image Hover */
+.hero-image {
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.6s ease;
+}
+
+.hero-image:hover {
+  transform: perspective(1000px) rotateY(-3.5deg) rotateX(2.5deg) translateY(-8px);
+  box-shadow: 0 30px 65px -15px rgba(29, 78, 216, 0.28);
+}
+
+/* KHQR Laser Scanner Beam */
+.khqr-qr-frame {
+  position: relative;
+  overflow: hidden;
+}
+
+.khqr-scan-laser {
+  position: absolute;
+  top: 5%;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #e1251b 20%, #2563eb 80%, transparent);
+  box-shadow: 0 0 10px 2px rgba(225, 37, 27, 0.7), 0 0 16px 4px rgba(37, 99, 235, 0.5);
+  pointer-events: none;
+  z-index: 5;
+  animation: laserScan 2.6s ease-in-out infinite alternate;
+}
+
+@keyframes laserScan {
+  0% { top: 6%; opacity: 0.25; }
+  20% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { top: 92%; opacity: 0.25; }
+}
+
+/* Primary Button Shimmer Wave */
+.button-dark {
+  position: relative;
+  overflow: hidden;
+}
+
+.button-dark::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -150%;
+  width: 70%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.28), transparent);
+  transform: skewX(-25deg);
+  animation: btnWave 4.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes btnWave {
+  0% { left: -150%; }
+  30% { left: 160%; }
+  100% { left: 160%; }
+}
+
+/* Staggered Product Cards */
+.product-card-slot {
+  animation: fadeInUp 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Telegram Button Shimmer */
+.telegram-cta {
+  position: relative;
+  overflow: hidden;
+}
+
+.telegram-cta::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -150%;
+  width: 70%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  transform: skewX(-25deg);
+  animation: btnWave 3.8s infinite ease-in-out;
+}

@@ -563,6 +563,7 @@ function App() {
         <div className="khqr-amount-usd">{money(amount)}</div>
         <div className="khqr-amount-khr">≈ {toRiel(amount)}</div>
         <div className="khqr-qr-frame">
+          <div className="khqr-scan-laser" />
           <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
             <rect width="200" height="200" fill="#fff" />
             <rect x="15" y="15" width="45" height="45" rx="6" fill="#1c1d18" />
@@ -608,7 +609,7 @@ function App() {
     <>
       <div className="announcement">
         <span className="announcement-text">
-          🇰🇭 {t.announcement}
+          <span className="live-beacon" /> 🇰🇭 {t.announcement}
         </span>
         <div className="announcement-controls">
           <button
@@ -729,7 +730,15 @@ function App() {
   );
 
   const ProductGrid = ({ items }) => items.length
-    ? <div className="product-grid">{items.map((product) => <div className="product-card-slot" key={product.id}>{ProductCard({ product })}</div>)}</div>
+    ? (
+      <div className="product-grid">
+        {items.map((product, index) => (
+          <div className="product-card-slot" key={product.id} style={{ animationDelay: `${index * 0.08}s` }}>
+            {ProductCard({ product })}
+          </div>
+        ))}
+      </div>
+    )
     : (
       <div className="empty-state">
         <span className="empty-icon">⌕</span>
@@ -804,6 +813,8 @@ function App() {
     <>
       <main>
         <section className="hero">
+          <div className="hero-glow-orb hero-glow-orb-1" />
+          <div className="hero-glow-orb hero-glow-orb-2" />
           <div className="hero-content">
             <p className="eyebrow">{t.heroEyebrow}</p>
             <h1>
