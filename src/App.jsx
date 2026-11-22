@@ -18,7 +18,37 @@ const adminLinks = [
   ['Reviews', 'Reviews'], ['Promotions', 'Promotions'], ['CMS', 'CMS'],
   ['Reports', 'Reports'], ['Settings', 'Settings'],
 ];
+
+const cambodiaProvinces = [
+  'Phnom Penh (រាជធានីភ្នំពេញ)',
+  'Siem Reap (ខេត្តសៀមរាប)',
+  'Battambang (ខេត្តបាត់ដំបង)',
+  'Preah Sihanouk (ខេត្តព្រះសីហនុ)',
+  'Kampot (ខេត្តកំពត)',
+  'Kandal (ខេត្តកណ្តាល)',
+  'Kampong Cham (ខេត្តកំពង់ចាម)',
+  'Kampong Speu (ខេត្តកំពង់ស្ពឺ)',
+  'Kampong Chhnang (ខេត្តកំពង់ឆ្នាំង)',
+  'Kampong Thom (ខេត្តកំពង់ធំ)',
+  'Takeo (ខេត្តតាកែវ)',
+  'Prey Veng (ខេត្តព្រៃវែង)',
+  'Svay Rieng (ខេត្តស្វាយរៀង)',
+  'Pursat (ខេត្តពោធិ៍សាត់)',
+  'Koh Kong (ខេត្តកោះកុង)',
+  'Kratie (ខេត្តក្រចេះ)',
+  'Stung Treng (ខេត្តស្ទឹងត្រែង)',
+  'Mondulkiri (ខេត្តមណ្ឌលគិរី)',
+  'Ratanakiri (ខេត្តរតនគិរី)',
+  'Preah Vihear (ខេត្តព្រះវិហារ)',
+  'Oddar Meanchey (ខេត្តឧត្តរមានជ័យ)',
+  'Banteay Meanchey (ខេត្តបន្ទាយមានជ័យ)',
+  'Pailin (ខេត្តប៉ៃលិន)',
+  'Tboung Khmum (ខេត្តត្បូងឃ្មុំ)',
+  'Kep (ខេត្តកែប)',
+];
+
 const money = (amount) => `$${Number(amount).toFixed(2)}`;
+const toRiel = (amount) => `៛${(Math.round(Number(amount) * 4100)).toLocaleString()}`;
 const readSaved = (key, fallback) => {
   try {
     const value = localStorage.getItem(key);
@@ -76,6 +106,17 @@ function App() {
   const [authMode, setAuthMode] = useState('Login');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // Cambodia Localization States
+  const [shippingCarrier, setShippingCarrier] = useState('VET'); // 'VET' (VET Express) or 'JND' (J&T Express)
+  const [paymentMethod, setPaymentMethod] = useState('KHQR'); // 'KHQR', 'ABA', 'ACLEDA', 'COD'
+  const [selectedProvince, setSelectedProvince] = useState(cambodiaProvinces[0]);
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerDistrict, setCustomerDistrict] = useState('');
+  const [customerAddress, setCustomerAddress] = useState('');
+  const [customerNote, setCustomerNote] = useState('');
+  const [lastOrder, setLastOrder] = useState(null);
+
   useEffect(() => { localStorage.setItem('localbrand-cart', JSON.stringify(cart)); }, [cart]);
   useEffect(() => { localStorage.setItem('localbrand-wishlist', JSON.stringify(wishlist)); }, [wishlist]);
   useEffect(() => {
@@ -87,6 +128,14 @@ function App() {
   const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
   const subtotal = cart.reduce((total, item) => total + item.price * item.quantity, 0);
   const discount = couponApplied ? subtotal * 0.1 : 0;
+
+  const isPhnomPenh = selectedProvince.includes('Phnom Penh');
+  const baseShippingFee = isPhnomPenh
+    ? (shippingCarrier === 'VET' ? 1.50 : 1.75)
+    : (shippingCarrier === 'VET' ? 2.00 : 2.50);
+  const shippingFee = (subtotal - discount) >= 50 ? 0 : baseShippingFee;
+  const grandTotal = Math.max(0, subtotal - discount) + (cart.length ? shippingFee : 0);
+
   const filteredProducts = useMemo(() => {
     const filtered = products.filter((product) => (category === 'All' || product.category === category)
       && `${product.name} ${product.category} ${product.color}`.toLowerCase().includes(search.toLowerCase()));
@@ -109,7 +158,7 @@ function App() {
         ? current.map((item) => item.id === product.id ? { ...item, quantity: item.quantity + quantity } : item)
         : [...current, { ...product, quantity }];
     });
-    setNotice(`${product.name} added to your bag`);
+    setNotice(`${product.name} បានបញ្ចូលទៅកន្ត្រក`);
   };
   const updateQuantity = (id, change) => setCart((current) => current
     .map((item) => item.id === id ? { ...item, quantity: item.quantity + change } : item)
@@ -117,7 +166,7 @@ function App() {
   const toggleWishlist = (product) => {
     const exists = wishlist.includes(product.id);
     setWishlist((current) => exists ? current.filter((id) => id !== product.id) : [...current, product.id]);
-    setNotice(exists ? 'Removed from your wishlist' : 'Saved to your wishlist');
+    setNotice(exists ? 'បានដកចេញពីបញ្ជីចង់បាន' : 'បានរក្សាទុកក្នុងបញ្ជីចង់បាន');
   };
   const showProduct = (product) => {
     setDetailQuantity(1);
@@ -130,7 +179,26 @@ function App() {
   const placeOrder = (event) => {
     event.preventDefault();
     if (!cart.length) return;
-    setOrderNumber(`AT-${Math.floor(100000 + Math.random() * 900000)}`);
+    const prefix = shippingCarrier === 'VET' ? 'VET' : 'JT';
+    const newOrderNum = `${prefix}-KH${Math.floor(100000 + Math.random() * 900000)}`;
+    const orderData = {
+      orderNumber: newOrderNum,
+      items: [...cart],
+      total: grandTotal,
+      subtotal: subtotal - discount,
+      shippingFee,
+      shippingCarrier,
+      paymentMethod,
+      customerName: customerName || 'អតិថិជន (Customer)',
+      customerPhone: customerPhone || '012 345 678',
+      selectedProvince,
+      customerDistrict: customerDistrict || 'Khan/District',
+      customerAddress: customerAddress || 'Address',
+      customerNote,
+      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+    };
+    setOrderNumber(newOrderNum);
+    setLastOrder(orderData);
     setCart([]);
     setCouponApplied(false);
     setCoupon('');
@@ -140,10 +208,10 @@ function App() {
     event.preventDefault();
     if (coupon.trim().toUpperCase() === 'WELCOME10') {
       setCouponApplied(true);
-      setNotice('Welcome! Your 10% discount has been applied.');
+      setNotice('សូមស្វាគមន៍! លោកអ្នកទទួលបានការបញ្ចុះតម្លៃ 10%');
     } else {
       setCouponApplied(false);
-      setNotice('That code did not work. Try WELCOME10.');
+      setNotice('កូដមិនត្រឹមត្រូវ។ សាកល្បង WELCOME10');
     }
   };
   const handleAuthSubmit = async (event) => {
@@ -223,9 +291,60 @@ function App() {
     go(adminAuthenticated ? 'admin' : 'admin-login');
   };
 
+  const KhqrCard = ({ amount, orderId, method = 'KHQR' }) => (
+    <div className="khqr-card">
+      <div className="khqr-card-header">
+        <span>KHQR</span>
+        <span>Bakong 🇰🇭</span>
+      </div>
+      <div className="khqr-card-body">
+        <div className="khqr-merchant">LOCALBRAND OFFICIAL</div>
+        <div className="khqr-amount-usd">{money(amount)}</div>
+        <div className="khqr-amount-khr">≈ {toRiel(amount)}</div>
+        <div className="khqr-qr-frame">
+          <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="200" height="200" fill="#fff" />
+            <rect x="15" y="15" width="45" height="45" rx="6" fill="#1c1d18" />
+            <rect x="23" y="23" width="29" height="29" rx="3" fill="#fff" />
+            <rect x="30" y="30" width="15" height="15" rx="2" fill="#e1251b" />
+            <rect x="140" y="15" width="45" height="45" rx="6" fill="#1c1d18" />
+            <rect x="148" y="23" width="29" height="29" rx="3" fill="#fff" />
+            <rect x="155" y="30" width="15" height="15" rx="2" fill="#e1251b" />
+            <rect x="15" y="140" width="45" height="45" rx="6" fill="#1c1d18" />
+            <rect x="23" y="148" width="29" height="29" rx="3" fill="#fff" />
+            <rect x="30" y="155" width="15" height="15" rx="2" fill="#e1251b" />
+            <g fill="#1c1d18">
+              <rect x="70" y="20" width="8" height="8" /><rect x="85" y="20" width="8" height="8" /><rect x="100" y="20" width="8" height="8" /><rect x="115" y="20" width="8" height="8" />
+              <rect x="70" y="35" width="8" height="8" /><rect x="95" y="35" width="8" height="8" /><rect x="110" y="35" width="8" height="8" /><rect x="125" y="35" width="8" height="8" />
+              <rect x="75" y="50" width="8" height="8" /><rect x="90" y="50" width="8" height="8" /><rect x="120" y="50" width="8" height="8" />
+              <rect x="20" y="70" width="8" height="8" /><rect x="35" y="70" width="8" height="8" /><rect x="50" y="70" width="8" height="8" /><rect x="65" y="70" width="8" height="8" /><rect x="130" y="70" width="8" height="8" /><rect x="145" y="70" width="8" height="8" /><rect x="160" y="70" width="8" height="8" /><rect x="175" y="70" width="8" height="8" />
+              <rect x="20" y="85" width="8" height="8" /><rect x="40" y="85" width="8" height="8" /><rect x="60" y="85" width="8" height="8" /><rect x="135" y="85" width="8" height="8" /><rect x="155" y="85" width="8" height="8" /><rect x="170" y="85" width="8" height="8" />
+              <rect x="25" y="100" width="8" height="8" /><rect x="45" y="100" width="8" height="8" /><rect x="130" y="100" width="8" height="8" /><rect x="150" y="100" width="8" height="8" /><rect x="165" y="100" width="8" height="8" />
+              <rect x="20" y="115" width="8" height="8" /><rect x="55" y="115" width="8" height="8" /><rect x="140" y="115" width="8" height="8" /><rect x="160" y="115" width="8" height="8" />
+              <rect x="70" y="140" width="8" height="8" /><rect x="85" y="140" width="8" height="8" /><rect x="105" y="140" width="8" height="8" /><rect x="120" y="140" width="8" height="8" />
+              <rect x="75" y="155" width="8" height="8" /><rect x="95" y="155" width="8" height="8" /><rect x="115" y="155" width="8" height="8" /><rect x="140" y="155" width="8" height="8" /><rect x="165" y="155" width="8" height="8" />
+              <rect x="70" y="170" width="8" height="8" /><rect x="90" y="170" width="8" height="8" /><rect x="110" y="170" width="8" height="8" /><rect x="130" y="170" width="8" height="8" /><rect x="150" y="170" width="8" height="8" /><rect x="170" y="170" width="8" height="8" />
+            </g>
+            <circle cx="100" cy="100" r="18" fill="#fff" stroke="#e1251b" strokeWidth="2.5" />
+            <rect x="91" y="93" width="18" height="14" rx="2" fill="#e1251b" />
+            <text x="100" y="103" fill="#fff" fontSize="6.5" fontWeight="bold" textAnchor="middle" fontFamily="sans-serif">KHQR</text>
+          </svg>
+        </div>
+        <p className="khqr-note">
+          ស្កេនទូទាត់ជាមួយ <strong>{method === 'ABA' ? 'ABA Mobile' : method === 'ACLEDA' ? 'ACLEDA Mobile' : 'ABA, ACLEDA ឬ App ធនាគារណាមួយ'}</strong><br />
+          <small style={{ color: '#8d8b82' }}>Ref: {orderId || 'LOCALBRAND-KH'}</small>
+        </p>
+        <div className="khqr-actions">
+          <button type="button" className="khqr-btn khqr-btn-primary" onClick={() => setNotice('បានរក្សាទុក QR Code')}>ទាញយក QR / Save</button>
+          <button type="button" className="khqr-btn khqr-btn-outline" onClick={() => setNotice(method === 'ACLEDA' ? 'ACLEDA: 012 345 678 (LOCALBRAND CO.)' : 'ABA: 001 888 999 (LOCALBRAND SHOP)')}>ចម្លងលេខគណនី</button>
+        </div>
+      </div>
+    </div>
+  );
+
   const Header = () => (
     <>
-      <div className="announcement">A little something for your first order — take 10% off with <strong>WELCOME10</strong></div>
+      <div className="announcement">🇰🇭 ដឹកជញ្ជូនទូទាំង 25 ខេត្ត/ក្រុង តាម <strong>VET Express</strong> & <strong>J&T Express</strong> · ទូទាត់តាម <strong>KHQR, ABA & ACLEDA</strong> (Free delivery $50+)</div>
       <header className="site-header">
         <button className="icon-button mobile-menu-button" aria-label="Open menu" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}><Icon name={mobileMenuOpen ? 'close' : 'menu'} /></button>
         <button className="wordmark" onClick={() => go('home')} aria-label="Localbrand home">localbrand<span>.</span></button>
@@ -259,24 +378,24 @@ function App() {
       <button className="product-info" onClick={() => showProduct(product)}>
         <span className="product-category">{product.category} <span>·</span> {product.color}</span>
         <span className="product-name">{product.name}</span>
-        <span className="product-price">{money(product.price)} {product.oldPrice && <del>{money(product.oldPrice)}</del>}</span>
+        <span className="product-price">{money(product.price)} <small className="riel-sub">({toRiel(product.price)})</small> {product.oldPrice && <del>{money(product.oldPrice)}</del>}</span>
       </button>
     </article>
   );
 
   const ProductGrid = ({ items }) => items.length
     ? <div className="product-grid">{items.map((product) => <div className="product-card-slot" key={product.id}>{ProductCard({ product })}</div>)}</div>
-    : <div className="empty-state"><span className="empty-icon">⌕</span><h3>Nothing here just yet</h3><p>Try a different search or explore all of our pieces.</p><button className="button button-dark" onClick={() => openShop()}>Explore the collection</button></div>;
+    : <div className="empty-state"><span className="empty-icon">⌕</span><h3>មិនមានទំនិញនៅឡើយទេ</h3><p>សូមសាកល្បងស្វែងរកឈ្មោះផ្សេង ឬពិនិត្យមើលគ្រប់មុខទំនិញរបស់យើង។</p><button className="button button-dark" onClick={() => openShop()}>មើលទំនិញទាំងអស់</button></div>;
 
   const Footer = () => (
     <footer className="site-footer">
       <div className="footer-top">
-        <div className="footer-brand"><button className="wordmark footer-wordmark" onClick={() => go('home')}>localbrand<span>.</span></button><p>Considered pieces for the everyday. Designed with care, made to be kept.</p><span className="footer-social">Instagram&nbsp;&nbsp; Pinterest</span></div>
-        <div className="footer-column"><h4>Discover</h4><button onClick={() => openShop()}>Shop all</button><button onClick={() => openShop('Bags')}>Bags</button><button onClick={() => openShop('Clothing')}>Clothing</button><button onClick={() => openShop('Accessories')}>Accessories</button></div>
-        <div className="footer-column"><h4>Here to help</h4><button onClick={() => go('account')}>My account</button><button onClick={() => { setAccountSection('Order tracking'); go('account'); }}>Order tracking</button><button onClick={() => setNotice('We are here for you at hello@localbrand.example')}>Contact us</button><button onClick={() => setNotice('Questions? Write to hello@localbrand.example')}>FAQs</button></div>
-        <div className="footer-newsletter"><h4>A note from us</h4><p>New arrivals, thoughtful reads, and 10% off your first order.</p><form onSubmit={(event) => { event.preventDefault(); setNotice('You are on the list. Talk soon!'); }}><input aria-label="Email for newsletter" type="email" required placeholder="Your email address" /><button aria-label="Subscribe"><Icon name="arrow" /></button></form><small>By subscribing, you agree to our privacy policy.</small></div>
+        <div className="footer-brand"><button className="wordmark footer-wordmark" onClick={() => go('home')}>localbrand<span>.</span></button><p>ម៉ូដទាន់សម័យ និងប្រកបដោយគុណភាពសម្រាប់ជីវិតប្រចាំថ្ងៃ។ ដឹកជញ្ជូនទូទាំង 25 ខេត្ត/ក្រុង តាម VET Express & J&T Express។</p><span className="footer-social">Telegram: @localbrand_kh · Facebook</span></div>
+        <div className="footer-column"><h4>ទំនិញទាំងអស់</h4><button onClick={() => openShop()}>មើលទាំងអស់</button><button onClick={() => openShop('Bags')}>កាតាប & កាបូប (Bags)</button><button onClick={() => openShop('Clothing')}>សម្លៀកបំពាក់ (Clothing)</button><button onClick={() => openShop('Accessories')}>គ្រឿងតុបតែង (Accessories)</button></div>
+        <div className="footer-column"><h4>សេវាកម្ម & ជំនួយ</h4><button onClick={() => go('account')}>គណនីរបស់ខ្ញុំ</button><button onClick={() => { setAccountSection('Order tracking'); go('account'); }}>តាមដានការដឹកជញ្ជូន</button><button onClick={() => setNotice('ទំនាក់ទំនង Telegram: @localbrand_kh ឬ 012 345 678')}>ទំនាក់ទំនង</button><button onClick={() => setNotice('ទូទាត់តាម KHQR, ABA, ACLEDA ឬ COD ពេលទទួលទំនិញ')}>វិធីសាស្ត្រទូទាត់</button></div>
+        <div className="footer-newsletter"><h4>ទទួលបានការបញ្ចុះតម្លៃ</h4><p>ទទួលបានដំណឹងទំនិញថ្មីៗ និងការបញ្ចុះតម្លៃ 10% សម្រាប់ការកុម្ម៉ង់ដំបូង។</p><form onSubmit={(event) => { event.preventDefault(); setNotice('អ្នកបានចុះឈ្មោះជោគជ័យ។ អរគុណ!'); }}><input aria-label="Email for newsletter" type="email" required placeholder="អ៊ីមែល ឬលេខទូរស័ព្ទ" /><button aria-label="Subscribe"><Icon name="arrow" /></button></form><small>យើងខ្ញុំគោរពសិទ្ធិឯកជនភាព និងសុវត្ថិភាពទិន្នន័យរបស់អ្នក។</small></div>
       </div>
-      <div className="footer-bottom"><span>© 2026 Localbrand. Made with intention.</span><div><button onClick={() => setNotice('Terms and conditions coming soon.')}>Terms</button><button onClick={() => setNotice('Privacy policy coming soon.')}>Privacy</button><button onClick={() => setNotice('Shipping and returns information coming soon.')}>Shipping & returns</button></div><span>USD&nbsp; · &nbsp;English</span></div>
+      <div className="footer-bottom"><span>© 2026 Localbrand Cambodia. All rights reserved.</span><div><button onClick={() => setNotice('VET Express & J&T Express: រយៈពេល 1-2 ថ្ងៃ')}>ការដឹកជញ្ជូន</button><button onClick={() => setNotice('បង់តាម KHQR / ABA / ACLEDA / COD')}>ការទូទាត់</button><button onClick={() => setNotice('អាចប្តូរទំនិញក្នុងរយៈពេល 7 ថ្ងៃ')}>គោលការណ៍ប្តូរ</button></div><span>USD & KHR (៛)&nbsp; · &nbsp;Cambodia 🇰🇭</span></div>
     </footer>
   );
 
@@ -288,57 +407,355 @@ function App() {
     <>
       <main>
         <section className="hero">
-          <div className="hero-content"><p className="eyebrow">The good things, made to last</p><h1>Less, but<br /><em>so much better.</em></h1><p className="hero-copy">Thoughtfully made essentials for the life you actually live. Good materials, lovely details, no fuss.</p><button className="button button-dark" onClick={() => openShop()}>Find your everyday <Icon name="arrow" size={16} /></button><div className="hero-note"><span>✳</span> Made to be lived in. Made to be loved.</div></div>
+          <div className="hero-content"><p className="eyebrow">The good things, made to last · ប្រណីតភាពប្រចាំថ្ងៃ</p><h1>Less, but<br /><em>so much better.</em></h1><p className="hero-copy">ផលិតផលដែលរចនាឡើងយ៉ាងយកចិត្តទុកដាក់សម្រាប់ជីវិតរស់នៅប្រចាំថ្ងៃ។ គុណភាពខ្ពស់ ស្រស់ស្អាត និងធន់យូរអង្វែង។</p><button className="button button-dark" onClick={() => openShop()}>ស្វែងរកទំនិញពេញនិយម <Icon name="arrow" size={16} /></button><div className="hero-note"><span>✳</span> ដឹកជញ្ជូនរហ័សទូទាំង 25 ខេត្ត/ក្រុង តាម VET & J&T Express</div></div>
           <div className="hero-image"><img src="https://images.unsplash.com/photo-1548036328-c9fa89d128fa?auto=format&fit=crop&w=1600&q=90" alt="A beautifully made everyday leather bag" /><span className="hero-image-caption">A little more considered. A lot more you.</span><span className="hero-image-index">01 — 04</span></div>
-          <span className="hero-vertical">THE EVERYDAY EDIT · EST. 2026</span>
+          <span className="hero-vertical">THE EVERYDAY EDIT · CAMBODIA 2026</span>
         </section>
-        <section className="promise-strip"><div><span>01</span><p>Made with intention</p></div><div><span>02</span><p>Free shipping over $150</p></div><div><span>03</span><p>Easy, considered returns</p></div><div><span>04</span><p>Pieces you'll keep forever</p></div></section>
-        <section className="home-section category-section">{SectionHeading({ eyebrow: 'A place for everything', title: 'A little something for every day.', action: 'Shop everything', onAction: () => openShop() })}<div className="category-grid">{[['Bags', 'The right bag changes everything.', 'photo-1584917865442-de89df76afd3'], ['Clothing', 'Your new off-duty favourites.', 'photo-1576566588028-4147f3842f27'], ['Shoes', 'A good day starts from the ground up.', 'photo-1542291026-7eec264c27ff'], ['Accessories', 'It’s the little things.', 'photo-1535632066927-ab7c9ab60908']].map(([name, subtitle, image], index) => <button key={name} className={`category-card category-card-${index + 1}`} onClick={() => openShop(name)}><img src={`https://images.unsplash.com/${image}?auto=format&fit=crop&w=900&q=85`} alt="" /><span className="category-overlay"><span className="category-kicker">EXPLORE THE EDIT</span><strong>{name}</strong><span className="category-subtitle">{subtitle}</span></span><span className="category-arrow"><Icon name="arrow" /></span></button>)}</div></section>
-        <section className="home-section bestsellers-section">{SectionHeading({ eyebrow: 'The ones you keep coming back to', title: 'Good things, on repeat.', text: 'Thoughtfully designed. Worn on repeat. Made to make every day feel a little more like you.', action: 'Shop all pieces', onAction: () => openShop() })}{ProductGrid({ items: products.slice(0, 4) })}</section>
-        <section className="story-banner"><div className="story-image"><img src="https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1200&q=85" alt="Sunlit independent localbrand studio" /></div><div className="story-copy"><p className="eyebrow">A little more thoughtful</p><h2>Buy less.<br /><em>Love longer.</em></h2><p>We believe the best things are the ones you reach for every morning. So we make fewer of them, make them carefully, and make them to stay.</p><button className="text-link" onClick={() => setNotice('Our story is coming soon. Stay a little while.')}>Get to know us <Icon name="arrow" size={16} /></button><span className="story-mark">A</span></div></section>
-        <section className="home-section arrivals-section">{SectionHeading({ eyebrow: 'Just found their way here', title: 'New, and already lovely.', action: 'See what’s new', onAction: () => { setSort('newest'); openShop(); } })}{ProductGrid({ items: products.filter((product) => product.tag === 'New') })}</section>
-        <section className="promo-banner"><div className="promo-text"><p className="eyebrow">A small thank you</p><h2>Something good<br />is in your <em>inbox.</em></h2><p>Take 10% off your first order. No big speeches, just a little something from us to you.</p><button className="button button-outline" onClick={() => document.querySelector('.footer-newsletter input')?.focus()}>Count me in <Icon name="arrow" size={16} /></button></div><div className="promo-decoration"><span>10</span><small>% OFF<br />YOUR FIRST ORDER</small><i>✳</i></div></section>
+        <section className="promise-strip"><div><span>01</span><p>ផលិតផលគុណភាពខ្ពស់ 100%</p></div><div><span>02</span><p>ដឹកតាម VET & J&T Express</p></div><div><span>03</span><p>ស្កេនទូទាត់ KHQR, ABA & ACLEDA</p></div><div><span>04</span><p>ដឹកទូទាំង 25 ខេត្ត/ក្រុង</p></div></section>
+        <section className="home-section category-section">{SectionHeading({ eyebrow: 'A place for everything', title: 'ជ្រើសរើសតាមប្រភេទ (Categories)', action: 'មើលទាំងអស់', onAction: () => openShop() })}<div className="category-grid">{[['Bags', 'The right bag changes everything.', 'photo-1584917865442-de89df76afd3'], ['Clothing', 'Your new off-duty favourites.', 'photo-1576566588028-4147f3842f27'], ['Shoes', 'A good day starts from the ground up.', 'photo-1542291026-7eec264c27ff'], ['Accessories', 'It’s the little things.', 'photo-1535632066927-ab7c9ab60908']].map(([name, subtitle, image], index) => <button key={name} className={`category-card category-card-${index + 1}`} onClick={() => openShop(name)}><img src={`https://images.unsplash.com/${image}?auto=format&fit=crop&w=900&q=85`} alt="" /><span className="category-overlay"><span className="category-kicker">EXPLORE THE EDIT</span><strong>{name}</strong><span className="category-subtitle">{subtitle}</span></span><span className="category-arrow"><Icon name="arrow" /></span></button>)}</div></section>
+        <section className="home-section bestsellers-section">{SectionHeading({ eyebrow: 'The ones you keep coming back to', title: 'ទំនិញលក់ដាច់បំផុត (Bestsellers)', text: 'រចនាឡើងយ៉ាងពិសេសសម្រាប់អ្នក ពេញនិយម និងមានការគាំទ្រយ៉ាងច្រើនពីអតិថិជន។', action: 'មើលទំនិញទាំងអស់', onAction: () => openShop() })}{ProductGrid({ items: products.slice(0, 4) })}</section>
+        <section className="story-banner"><div className="story-image"><img src="https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1200&q=85" alt="Sunlit independent localbrand studio" /></div><div className="story-copy"><p className="eyebrow">A little more thoughtful</p><h2>Buy less.<br /><em>Love longer.</em></h2><p>យើងជឿជាក់ថាទំនិញដែលល្អបំផុត គឺជាទំនិញដែលអ្នកចង់ប្រើរាល់ថ្ងៃ។ ដូច្នេះហើយ ទើបយើងផលិតដោយផ្ចិតផ្ចង់ និងប្រើប្រាស់វត្ថុធាតុដើមមានគុណភាព។</p><button className="text-link" onClick={() => setNotice('ទាក់ទងមកយើងខ្ញុំតាម Telegram: @localbrand_kh')}>ស្វែងយល់បន្ថែម <Icon name="arrow" size={16} /></button><span className="story-mark">A</span></div></section>
+        <section className="home-section arrivals-section">{SectionHeading({ eyebrow: 'Just found their way here', title: 'ទំនិញមកដល់ថ្មី (New Arrivals)', action: 'មើលទំនិញថ្មីៗ', onAction: () => { setSort('newest'); openShop(); } })}{ProductGrid({ items: products.filter((product) => product.tag === 'New') })}</section>
+        <section className="promo-banner"><div className="promo-text"><p className="eyebrow">A small thank you</p><h2>Something good<br />is in your <em>inbox.</em></h2><p>ទទួលបានការបញ្ចុះតម្លៃ 10% សម្រាប់ការកុម្ម៉ង់ដំបូង ដោយប្រើកូដ WELCOME10។</p><button className="button button-outline" onClick={() => document.querySelector('.footer-newsletter input')?.focus()}>ទទួលការបញ្ចុះតម្លៃ <Icon name="arrow" size={16} /></button></div><div className="promo-decoration"><span>10</span><small>% OFF<br />YOUR FIRST ORDER</small><i>✳</i></div></section>
       </main>
     </>
   );
 
   const ShopPage = () => (
-    <main className="page-container shop-page"><div className="page-intro"><p className="eyebrow">Good things live here</p><h1>Shop the collection<span>.</span></h1><p>A thoughtfully edited collection of things you'll reach for every day.</p></div><div className="shop-toolbar"><div className="category-filters">{['All', 'Bags', 'Clothing', 'Shoes', 'Accessories', 'Travel'].map((name) => <button key={name} className={category === name ? 'filter-active' : ''} onClick={() => setCategory(name)}>{name}</button>)}</div><div className="sort-control"><span>{filteredProducts.length} pieces</span><select aria-label="Sort products" value={sort} onChange={(event) => setSort(event.target.value)}><option value="featured">Featured</option><option value="newest">Newest</option><option value="price-low">Price: low to high</option><option value="price-high">Price: high to low</option></select></div></div>{ProductGrid({ items: filteredProducts })}</main>
+    <main className="page-container shop-page"><div className="page-intro"><p className="eyebrow">Good things live here · គ្រប់មុខទំនិញ</p><h1>Shop the collection<span>.</span></h1><p>បណ្តុំទំនិញរចនាឡើងយ៉ាងសម្រិតសម្រាំងសម្រាប់ជីវិតប្រចាំថ្ងៃរបស់អ្នក។</p></div><div className="shop-toolbar"><div className="category-filters">{['All', 'Bags', 'Clothing', 'Shoes', 'Accessories', 'Travel'].map((name) => <button key={name} className={category === name ? 'filter-active' : ''} onClick={() => setCategory(name)}>{name}</button>)}</div><div className="sort-control"><span>{filteredProducts.length} មុខទំនិញ</span><select aria-label="Sort products" value={sort} onChange={(event) => setSort(event.target.value)}><option value="featured">Featured</option><option value="newest">ថ្មីបំផុត (Newest)</option><option value="price-low">តម្លៃ៖ ទាបទៅខ្ពស់</option><option value="price-high">តម្លៃ៖ ខ្ពស់ទៅទាប</option></select></div></div>{ProductGrid({ items: filteredProducts })}</main>
   );
 
   const CartPage = () => (
-    <main className="page-container checkout-page"><p className="eyebrow">Your good things</p><h1>Your bag<span>.</span></h1>{!cart.length ? <div className="empty-state"><span className="empty-icon"><Icon name="bag" size={30} /></span><h3>It's looking a little empty.</h3><p>Some lovely things are waiting to come home with you.</p><button className="button button-dark" onClick={() => openShop()}>Find your something <Icon name="arrow" size={16} /></button></div> : <div className="checkout-layout"><div className="cart-items">{cart.map((item) => <article className="cart-item" key={item.id}><button className="cart-image" onClick={() => setSelectedProduct(item)}><img src={item.image} alt={item.name} /></button><div className="cart-item-copy"><p className="product-category">{item.category} · {item.color}</p><h3>{item.name}</h3><p>{money(item.price)}</p><div className="quantity-control"><button aria-label="Decrease quantity" onClick={() => updateQuantity(item.id, -1)}><Icon name="minus" size={14} /></button><span>{item.quantity}</span><button aria-label="Increase quantity" onClick={() => updateQuantity(item.id, 1)}><Icon name="plus" size={14} /></button></div></div><button className="remove-item" onClick={() => setCart((current) => current.filter((product) => product.id !== item.id))}>Remove</button></article>)}</div><aside className="order-summary"><h2>A little summary</h2><div className="coupon-field"><form onSubmit={applyCoupon}><input placeholder="Gift card or discount code" aria-label="Discount code" value={coupon} onChange={(event) => setCoupon(event.target.value)} /><button>Apply</button></form><small>Try WELCOME10 for 10% off your first order.</small></div>{couponApplied && <p className="discount-note">Welcome discount <span>−{money(discount)}</span></p>}<div className="summary-row"><span>Subtotal</span><span>{money(subtotal)}</span></div><div className="summary-row"><span>Shipping</span><span>{subtotal >= 150 ? 'On us' : 'Calculated at checkout'}</span></div><div className="summary-total"><span>Total</span><strong>{money(subtotal - discount)}</strong></div><button className="button button-dark full-button" onClick={startCheckout}>Continue to checkout <Icon name="arrow" size={16} /></button><div className="secure-note">✳&nbsp; A secure, easy checkout. Always.</div></aside></div>}</main>
+    <main className="page-container checkout-page">
+      <p className="eyebrow">Your good things · កន្ត្រកទំនិញ</p>
+      <h1>Your bag<span>.</span></h1>
+      {!cart.length ? (
+        <div className="empty-state">
+          <span className="empty-icon"><Icon name="bag" size={30} /></span>
+          <h3>កន្ត្រកទំនិញរបស់អ្នកនៅទទេ</h3>
+          <p>មិនទាន់មានទំនិញក្នុងកន្ត្រកនៅឡើយទេ។ ជ្រើសរើសទំនិញដែលអ្នកពេញចិត្តឥឡូវនេះ។</p>
+          <button className="button button-dark" onClick={() => openShop()}>មើលទំនិញទាំងអស់ <Icon name="arrow" size={16} /></button>
+        </div>
+      ) : (
+        <div className="checkout-layout">
+          <div className="cart-items">
+            {cart.map((item) => (
+              <article className="cart-item" key={item.id}>
+                <button className="cart-image" onClick={() => setSelectedProduct(item)}>
+                  <img src={item.image} alt={item.name} />
+                </button>
+                <div className="cart-item-copy">
+                  <p className="product-category">{item.category} · {item.color}</p>
+                  <h3>{item.name}</h3>
+                  <p>{money(item.price)} <small className="riel-sub">({toRiel(item.price)})</small></p>
+                  <div className="quantity-control">
+                    <button aria-label="Decrease quantity" onClick={() => updateQuantity(item.id, -1)}><Icon name="minus" size={14} /></button>
+                    <span>{item.quantity}</span>
+                    <button aria-label="Increase quantity" onClick={() => updateQuantity(item.id, 1)}><Icon name="plus" size={14} /></button>
+                  </div>
+                </div>
+                <button className="remove-item" onClick={() => setCart((current) => current.filter((product) => product.id !== item.id))}>លុប</button>
+              </article>
+            ))}
+          </div>
+          <aside className="order-summary">
+            <h2>សង្ខេបការកុម្ម៉ង់ (Order Summary)</h2>
+            <div className="coupon-field">
+              <form onSubmit={applyCoupon}>
+                <input placeholder="កូដបញ្ចុះតម្លៃ (Discount code)" aria-label="Discount code" value={coupon} onChange={(event) => setCoupon(event.target.value)} />
+                <button>Apply</button>
+              </form>
+              <small>ប្រើ WELCOME10 ដើម្បីទទួលបានការបញ្ចុះតម្លៃ 10%។</small>
+            </div>
+            {couponApplied && <p className="discount-note">បញ្ចុះតម្លៃ (Discount 10%) <span>−{money(discount)} ({toRiel(discount)})</span></p>}
+            <div className="summary-row">
+              <span>តម្លៃទំនិញសរុប (Subtotal)</span>
+              <span>{money(subtotal)} <small className="riel-sub">({toRiel(subtotal)})</small></span>
+            </div>
+            <div className="summary-row">
+              <span>សេវាដឹក (Shipping)</span>
+              <span>{(subtotal - discount) >= 50 ? 'Free (លើស $50)' : 'VET / J&T Express ($1.50 - $2.50)'}</span>
+            </div>
+            <div className="summary-total">
+              <span>ទឹកប្រាក់សរុប (Total)</span>
+              <div>
+                <strong>{money(subtotal - discount)}</strong>
+                <div style={{ fontSize: '12px', color: '#7a786f', fontWeight: '500', marginTop: '2px' }}>
+                  ≈ {toRiel(subtotal - discount)}
+                </div>
+              </div>
+            </div>
+            <button className="button button-dark full-button" onClick={startCheckout}>
+              បន្តទៅទូទាត់ប្រាក់ (Checkout) <Icon name="arrow" size={16} />
+            </button>
+            <div className="secure-note" style={{ textAlign: 'left', lineHeight: '1.6', marginTop: '16px' }}>
+              🚚 ដឹកជញ្ជូនរហ័ស 25 ខេត្ត/ក្រុង តាម <strong>VET Express</strong> & <strong>J&T Express</strong><br />
+              💳 ទូទាត់តាម <strong>KHQR, ABA & ACLEDA</strong> ឬ <strong>បង់ប្រាក់ពេលទទួល (COD)</strong>
+            </div>
+          </aside>
+        </div>
+      )}
+    </main>
   );
 
   const CheckoutPage = () => (
-    <main className="page-container checkout-page"><p className="eyebrow">Nearly yours</p><h1>Checkout<span>.</span></h1><div className="checkout-layout"><form className="checkout-form" onSubmit={placeOrder}><div className="checkout-form-section"><p className="eyebrow">01 — Where to?</p><h2>Shipping details</h2><div className="form-grid"><label>First name<input required autoComplete="given-name" placeholder="Jane" /></label><label>Last name<input required autoComplete="family-name" placeholder="Smith" /></label><label className="form-span">Email address<input required type="email" autoComplete="email" placeholder="jane@example.com" /></label><label className="form-span">Street address<input required autoComplete="street-address" placeholder="123 Anywhere Street" /></label><label>City<input required autoComplete="address-level2" placeholder="Brooklyn" /></label><label>ZIP / Postal code<input required autoComplete="postal-code" placeholder="11201" /></label><label className="form-span">Country<select required defaultValue=""><option value="" disabled>Select your country</option><option>United States</option><option>Canada</option><option>United Kingdom</option><option>Australia</option></select></label></div></div><div className="checkout-form-section"><p className="eyebrow">02 — The important bit</p><h2>Payment method</h2><label className="payment-option"><input type="radio" name="payment" defaultChecked /> <span><strong>Credit or debit card</strong><small>Visa, Mastercard, American Express</small></span><span>VISA&nbsp; · &nbsp;MC</span></label><label className="payment-option"><input type="radio" name="payment" /> <span><strong>PayPal</strong><small>You'll be redirected to PayPal to pay.</small></span><span>PayPal</span></label><p className="demo-payment-note">Demo checkout — no real payment will be collected.</p></div><button className="button button-dark full-button">Place your order <Icon name="arrow" size={16} /></button></form><aside className="order-summary"><h2>In your bag</h2>{cart.map((item) => <div className="summary-product" key={item.id}><img src={item.image} alt="" /><div><strong>{item.name}</strong><small>Qty {item.quantity} · {item.color}</small></div><span>{money(item.price * item.quantity)}</span></div>)}<div className="summary-row"><span>Subtotal</span><span>{money(subtotal)}</span></div>{couponApplied && <div className="summary-row discount-note"><span>Welcome discount</span><span>−{money(discount)}</span></div>}<div className="summary-row"><span>Shipping</span><span>{subtotal >= 150 ? 'On us' : '$8.00'}</span></div><div className="summary-total"><span>Total</span><strong>{money(Math.max(0, subtotal - discount) + (subtotal >= 150 ? 0 : 8))}</strong></div></aside></div></main>
+    <main className="page-container checkout-page">
+      <p className="eyebrow">Almost yours · រៀបចំរួចរាល់</p>
+      <h1>Checkout<span>.</span></h1>
+      <div className="checkout-layout">
+        <form className="checkout-form" onSubmit={placeOrder}>
+          {/* SECTION 01: Shipping Address */}
+          <div className="checkout-form-section">
+            <p className="eyebrow">01 — ព័ត៌មានដឹកជញ្ជូន / Shipping Details</p>
+            <h2>អាសយដ្ឋានអ្នកទទួលទំនិញ</h2>
+            <div className="form-grid">
+              <label>
+                ឈ្មោះអ្នកទទួល (Full Name) *
+                <input required autoComplete="name" placeholder="ឧ. ចាន់ សុខា" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
+              </label>
+              <label>
+                លេខទូរស័ព្ទ / Telegram *
+                <input required type="tel" autoComplete="tel" placeholder="ឧ. 012 345 678" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} />
+              </label>
+              <label className="form-span">
+                រាជធានី / ខេត្ត (Province / City) *
+                <select required value={selectedProvince} onChange={(e) => setSelectedProvince(e.target.value)}>
+                  {cambodiaProvinces.map((prov) => (
+                    <option key={prov} value={prov}>{prov}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                ខណ្ឌ / ស្រុក / សង្កាត់ (District / Khan) *
+                <input required placeholder="ឧ. ខណ្ឌទួលគោក / សង្កាត់បឹងកក់២" value={customerDistrict} onChange={(e) => setCustomerDistrict(e.target.value)} />
+              </label>
+              <label>
+                ផ្ទះលេខ ផ្លូវ ឬទីតាំងសម្គាល់ (Street / Landmark) *
+                <input required placeholder="ឧ. ផ្ទះលេខ 12 ផ្លូវ 289 ក្បែរផ្សារ" value={customerAddress} onChange={(e) => setCustomerAddress(e.target.value)} />
+              </label>
+              <label className="form-span">
+                ចំណាំដឹកជញ្ជូន (Delivery Note - Optional)
+                <input placeholder="ឧ. ហៅទូរស័ព្ទមុនមកដល់ ឬផ្ញើទុកនៅសាខា VET Express" value={customerNote} onChange={(e) => setCustomerNote(e.target.value)} />
+              </label>
+            </div>
+          </div>
+
+          {/* SECTION 02: Delivery Partner */}
+          <div className="checkout-form-section">
+            <p className="eyebrow">02 — សេវាដឹកជញ្ជូន / Delivery Partner</p>
+            <h2>ជ្រើសរើសសេវាដឹកជញ្ជូន (VET Express & J&T Express)</h2>
+            <label className={`method-card ${shippingCarrier === 'VET' ? 'is-selected' : ''}`}>
+              <input type="radio" name="shippingCarrier" checked={shippingCarrier === 'VET'} onChange={() => setShippingCarrier('VET')} />
+              <div className="method-info">
+                <div className="method-title-row">
+                  <span className="badge-carrier badge-vet">VET Express</span>
+                  <strong>VET Express (វីរៈប៊ុនថាំ)</strong>
+                </div>
+                <small>ដឹកជញ្ជូនរហ័សទូទាំង 25 ខេត្ត/ក្រុង និងមានសាខាទទួលទូទាំងប្រទេស (1 - 2 ថ្ងៃ)</small>
+              </div>
+              <span className="method-price">{shippingFee === 0 && shippingCarrier === 'VET' ? 'Free' : (isPhnomPenh ? '$1.50' : '$2.00')}</span>
+            </label>
+            <label className={`method-card ${shippingCarrier === 'JND' ? 'is-selected' : ''}`}>
+              <input type="radio" name="shippingCarrier" checked={shippingCarrier === 'JND'} onChange={() => setShippingCarrier('JND')} />
+              <div className="method-info">
+                <div className="method-title-row">
+                  <span className="badge-carrier badge-jnt">J&T Express</span>
+                  <strong>J&T Express (JND Express)</strong>
+                </div>
+                <small>សេវាដឹកជញ្ជូនផ្ទាល់ដល់មាត់ទ្វារផ្ទះ ឬកន្លែងធ្វើការ (Door-to-door Delivery 1 - 2 ថ្ងៃ)</small>
+              </div>
+              <span className="method-price">{shippingFee === 0 && shippingCarrier === 'JND' ? 'Free' : (isPhnomPenh ? '$1.75' : '$2.50')}</span>
+            </label>
+          </div>
+
+          {/* SECTION 03: Payment Method */}
+          <div className="checkout-form-section">
+            <p className="eyebrow">03 — វិធីសាស្ត្រទូទាត់ / Payment Method</p>
+            <h2>ជ្រើសរើសការបង់ប្រាក់ (ABA, ACLEDA, KHQR, COD)</h2>
+            <label className={`method-card ${paymentMethod === 'KHQR' ? 'is-selected' : ''}`}>
+              <input type="radio" name="payment" checked={paymentMethod === 'KHQR'} onChange={() => setPaymentMethod('KHQR')} />
+              <div className="method-info">
+                <div className="method-title-row">
+                  <span className="badge-carrier badge-khqr">KHQR</span>
+                  <strong>KHQR (Bakong) — ស្កេនទូទាត់គ្រប់ធនាគារ</strong>
+                </div>
+                <small>ស្កេនទូទាត់ងាយស្រួលជាមួយ ABA, ACLEDA, Sathapana, Wing, Canadia, TrueMoney...</small>
+              </div>
+            </label>
+            <label className={`method-card ${paymentMethod === 'ABA' ? 'is-selected' : ''}`}>
+              <input type="radio" name="payment" checked={paymentMethod === 'ABA'} onChange={() => setPaymentMethod('ABA')} />
+              <div className="method-info">
+                <div className="method-title-row">
+                  <span className="badge-carrier badge-aba">ABA Mobile</span>
+                  <strong>ABA Mobile (ABA PayWay / KHQR)</strong>
+                </div>
+                <small>ទូទាត់ផ្ទាល់តាម ABA Mobile App (គណនី: 001 888 999 - LOCALBRAND SHOP)</small>
+              </div>
+            </label>
+            <label className={`method-card ${paymentMethod === 'ACLEDA' ? 'is-selected' : ''}`}>
+              <input type="radio" name="payment" checked={paymentMethod === 'ACLEDA'} onChange={() => setPaymentMethod('ACLEDA')} />
+              <div className="method-info">
+                <div className="method-title-row">
+                  <span className="badge-carrier badge-acleda">ACLEDA</span>
+                  <strong>ACLEDA Mobile (ACLEDA QR)</strong>
+                </div>
+                <small>ទូទាត់តាម ACLEDA Mobile App (គណនី: 012 345 678 - LOCALBRAND CO., LTD)</small>
+              </div>
+            </label>
+            <label className={`method-card ${paymentMethod === 'COD' ? 'is-selected' : ''}`}>
+              <input type="radio" name="payment" checked={paymentMethod === 'COD'} onChange={() => setPaymentMethod('COD')} />
+              <div className="method-info">
+                <div className="method-title-row">
+                  <span className="badge-carrier badge-cod">COD</span>
+                  <strong>Cash on Delivery (បង់ប្រាក់ពេលទទួលទំនិញ)</strong>
+                </div>
+                <small>ទូទាត់ប្រាក់សុទ្ធជូនអ្នកដឹកជញ្ជូន {shippingCarrier === 'VET' ? 'VET Express' : 'J&T Express'} ពេលទំនិញមកដល់ដៃ</small>
+              </div>
+            </label>
+
+            {paymentMethod !== 'COD' && (
+              <div style={{ marginTop: '16px' }}>
+                <p style={{ fontSize: '12.5px', color: '#68675f', margin: '8px 0 12px' }}>
+                  ✳ ក្រោយចុចបញ្ជាទិញ លោកអ្នកអាចស្កេន QR Code ខាងក្រោម ឬលើផ្ទាំងបញ្ជាក់ការបញ្ជាទិញ៖
+                </p>
+                {KhqrCard({ amount: grandTotal, orderId: 'ORDER-PENDING', method: paymentMethod })}
+              </div>
+            )}
+          </div>
+
+          <button className="button button-dark full-button" type="submit">
+            បញ្ជាទិញឥឡូវនេះ (Confirm Order) · {money(grandTotal)} <Icon name="arrow" size={16} />
+          </button>
+        </form>
+
+        <aside className="order-summary">
+          <h2>ទំនិញក្នុងកន្ត្រក ({cartCount})</h2>
+          {cart.map((item) => (
+            <div className="summary-product" key={item.id}>
+              <img src={item.image} alt="" />
+              <div>
+                <strong>{item.name}</strong>
+                <small>Qty {item.quantity} · {item.color}</small>
+              </div>
+              <span>{money(item.price * item.quantity)}</span>
+            </div>
+          ))}
+          <div className="summary-row">
+            <span>តម្លៃទំនិញ (Subtotal)</span>
+            <span>{money(subtotal)}</span>
+          </div>
+          {couponApplied && (
+            <div className="summary-row discount-note">
+              <span>បញ្ចុះតម្លៃ (Discount 10%)</span>
+              <span>−{money(discount)}</span>
+            </div>
+          )}
+          <div className="summary-row">
+            <span>សេវាដឹក ({shippingCarrier === 'VET' ? 'VET Express' : 'J&T Express'})</span>
+            <span>{shippingFee === 0 ? 'Free' : money(shippingFee)}</span>
+          </div>
+          <div className="summary-total">
+            <span>ទឹកប្រាក់សរុប (Total)</span>
+            <div>
+              <strong>{money(grandTotal)}</strong>
+              <div style={{ fontSize: '12px', color: '#7a786f', fontWeight: '500', marginTop: '2px' }}>
+                ≈ {toRiel(grandTotal)}
+              </div>
+            </div>
+          </div>
+          <div className="secure-note" style={{ textAlign: 'left', lineHeight: '1.6', marginTop: '18px' }}>
+            🚚 <strong>សេវាដឹកជញ្ជូន៖</strong> {shippingCarrier === 'VET' ? 'VET Express (វីរៈប៊ុនថាំ)' : 'J&T Express (JND)'}<br />
+            💳 <strong>វិធីសាស្ត្រទូទាត់៖</strong> {paymentMethod === 'KHQR' ? 'KHQR (Bakong)' : paymentMethod === 'ABA' ? 'ABA Mobile' : paymentMethod === 'ACLEDA' ? 'ACLEDA Mobile' : 'Cash on Delivery (COD)'}<br />
+            📍 <strong>ខេត្ត/ក្រុង៖</strong> {selectedProvince.split(' ')[0]}
+          </div>
+        </aside>
+      </div>
+    </main>
   );
 
-  const WishlistPage = () => <main className="page-container shop-page"><p className="eyebrow">A little list of lovely things</p><h1>Your wishlist<span>.</span></h1>{wishlist.length ? ProductGrid({ items: products.filter((product) => wishlist.includes(product.id)) }) : <div className="empty-state"><span className="empty-icon"><Icon name="heart" size={30} /></span><h3>Keep the things you love close.</h3><p>Tap the little heart on any piece to save it for later.</p><button className="button button-dark" onClick={() => openShop()}>Explore the collection <Icon name="arrow" size={16} /></button></div>}</main>;
+  const WishlistPage = () => <main className="page-container shop-page"><p className="eyebrow">A little list of lovely things · បញ្ជីចង់បាន</p><h1>Your wishlist<span>.</span></h1>{wishlist.length ? ProductGrid({ items: products.filter((product) => wishlist.includes(product.id)) }) : <div className="empty-state"><span className="empty-icon"><Icon name="heart" size={30} /></span><h3>មិនទាន់មានទំនិញក្នុងបញ្ជីចង់បាន</h3><p>ចុចលើរូបបេះដូងលើទំនិញណាមួយដើម្បីរក្សាទុកសម្រាប់ថ្ងៃក្រោយ។</p><button className="button button-dark" onClick={() => openShop()}>មើលទំនិញទាំងអស់ <Icon name="arrow" size={16} /></button></div>}</main>;
 
   const AccountPage = () => {
     const accountTabs = ['Profile', 'My orders', 'Order tracking', 'Addresses', 'Change password', 'Wishlist'];
-    return <main className="page-container account-page"><p className="eyebrow">Your little corner</p><h1>My account<span>.</span></h1><div className="account-layout"><nav className="account-nav">{accountTabs.map((tab) => <button className={accountSection === tab ? 'account-tab-active' : ''} key={tab} onClick={() => tab === 'Wishlist' ? go('wishlist') : setAccountSection(tab)}>{tab}<span>→</span></button>)}{signedInEmail && <button onClick={logout}>Log out <span>→</span></button>}</nav><section className="account-content">{accountSection === 'Profile' && <><p className="eyebrow">{signedInEmail ? 'You are signed in' : 'Welcome to your account'}</p><h2>{signedInEmail ? 'Hello there.' : 'Hello there.'}</h2>{signedInEmail ? <><p>Signed in as <strong>{signedInEmail}</strong>. Your Localbrand account is ready.</p><button className="button button-light" onClick={logout}>Log out</button></> : <><p>Sign in or create an account to keep all your lovely things in one place.</p><div className="account-actions"><button className="button button-dark" onClick={() => { setAuthMode('Login'); go('auth'); }}>Sign in <Icon name="arrow" size={16} /></button><button className="button button-light" onClick={() => { setAuthMode('Register'); go('auth'); }}>Create account</button></div></>}</>}{accountSection === 'My orders' && <><p className="eyebrow">Your order history</p><h2>Orders</h2><div className="account-empty"><span>✳</span><p>Your orders will find their way here.</p><button className="text-link" onClick={() => go('cart')}>Go to your bag <Icon name="arrow" size={16} /></button></div></>}{accountSection === 'Order tracking' && <><p className="eyebrow">On its way to you</p><h2>Track an order</h2><form onSubmit={(event) => { event.preventDefault(); setNotice('No order found. Sign in to see your recent orders.'); }} className="tracking-form"><label>Order number<input required placeholder="e.g. AT-123456" value={orderNumber} onChange={(event) => setOrderNumber(event.target.value)} /></label><button className="button button-dark">Find my order <Icon name="arrow" size={16} /></button></form></>}{accountSection === 'Addresses' && <><p className="eyebrow">Ready when you are</p><h2>Your addresses</h2><p>{signedInEmail ? 'Saved addresses will appear here.' : 'Sign in to save an address for a quicker checkout.'}</p></>}{accountSection === 'Change password' && <><p className="eyebrow">A little account housekeeping</p><h2>Change password</h2><button className="button button-dark" onClick={() => { setAuthMode('Forgot password'); go('auth'); }}>Send a reset link <Icon name="arrow" size={16} /></button></>}</section></div></main>;
+    return <main className="page-container account-page"><p className="eyebrow">Your little corner · គណនី</p><h1>My account<span>.</span></h1><div className="account-layout"><nav className="account-nav">{accountTabs.map((tab) => <button className={accountSection === tab ? 'account-tab-active' : ''} key={tab} onClick={() => tab === 'Wishlist' ? go('wishlist') : setAccountSection(tab)}>{tab}<span>→</span></button>)}{signedInEmail && <button onClick={logout}>ចាកចេញ (Log out) <span>→</span></button>}</nav><section className="account-content">{accountSection === 'Profile' && <><p className="eyebrow">{signedInEmail ? 'You are signed in' : 'Welcome to your account'}</p><h2>{signedInEmail ? 'សួស្តី!' : 'សួស្តី!'}</h2>{signedInEmail ? <><p>បានចូលប្រើប្រាស់ជា <strong>{signedInEmail}</strong>។</p><button className="button button-light" onClick={logout}>Log out</button></> : <><p>ចូលប្រើ ឬបង្កើតគណនីថ្មីដើម្បីរក្សាទុកប្រវត្តិទិញទំនិញ និងអាសយដ្ឋានដឹកជញ្ជូន។</p><div className="account-actions"><button className="button button-dark" onClick={() => { setAuthMode('Login'); go('auth'); }}>Sign in <Icon name="arrow" size={16} /></button><button className="button button-light" onClick={() => { setAuthMode('Register'); go('auth'); }}>Create account</button></div></>}</>}{accountSection === 'My orders' && <><p className="eyebrow">Your order history</p><h2>ការកុម្ម៉ង់របស់ខ្ញុំ</h2><div className="account-empty"><span>✳</span><p>{lastOrder ? `ការកុម្ម៉ង់ចុងក្រោយ៖ #${lastOrder.orderNumber} ដឹកតាម ${lastOrder.shippingCarrier === 'VET' ? 'VET Express' : 'J&T Express'}` : 'ប្រវត្តិនៃការកុម្ម៉ង់ទំនិញនឹងបង្ហាញនៅទីនេះ។'}</p><button className="text-link" onClick={() => go('cart')}>ទៅកាន់កន្ត្រកទំនិញ <Icon name="arrow" size={16} /></button></div></>}{accountSection === 'Order tracking' && <><p className="eyebrow">On its way to you</p><h2>តាមដានការដឹកជញ្ជូន (VET & J&T Express)</h2><form onSubmit={(event) => { event.preventDefault(); setNotice(orderNumber ? `ទំនិញ #${orderNumber} កំពុងដំណើរការដឹកជញ្ជូន!` : 'សូមបញ្ចូលលេខកូដកុម្ម៉ង់។'); }} className="tracking-form"><label>លេខកូដកុម្ម៉ង់ (Order Number)<input required placeholder="ឧ. VET-KH123456 ឬ JT-KH123456" value={orderNumber} onChange={(event) => setOrderNumber(event.target.value)} /></label><button className="button button-dark">ស្វែងរកការដឹកជញ្ជូន <Icon name="arrow" size={16} /></button></form></>}{accountSection === 'Addresses' && <><p className="eyebrow">Ready when you are</p><h2>អាសយដ្ឋានដឹកជញ្ជូន</h2><p>{customerAddress ? `${customerAddress}, ${customerDistrict}, ${selectedProvince}` : 'លោកអ្នកអាចបញ្ចូលអាសយដ្ឋាននៅពេលទូទាត់ប្រាក់ (Checkout)។'}</p></>}{accountSection === 'Change password' && <><p className="eyebrow">Housekeeping</p><h2>ប្តូរពាក្យសម្ងាត់</h2><button className="button button-dark" onClick={() => { setAuthMode('Forgot password'); go('auth'); }}>ផ្ញើតំណភ្ជាប់ប្តូរពាក្យសម្ងាត់ <Icon name="arrow" size={16} /></button></>}</section></div></main>;
   };
 
-  const AuthPage = () => <main className="auth-page"><div className="auth-card"><p className="eyebrow">A lovely place to come back to</p><h1>{authMode}<span>.</span></h1><p>{authMode === 'Login' ? 'Good to see you again.' : authMode === 'Register' ? 'Make room for the good things.' : 'We’ll send a little help your way.'}</p><form onSubmit={handleAuthSubmit}><label>Email address<input name="email" required type="email" autoComplete="email" placeholder="you@example.com" /></label>{authMode !== 'Forgot password' && <label>Password<input name="password" required type="password" minLength="8" autoComplete={authMode === 'Register' ? 'new-password' : 'current-password'} placeholder="At least 8 characters" /></label>}{authMode === 'Register' && <label>Confirm password<input name="confirmPassword" required type="password" minLength="8" autoComplete="new-password" placeholder="Once more, just to be sure" /></label>}<button className="button button-dark full-button">{authMode === 'Login' ? 'Sign in' : authMode === 'Register' ? 'Create account' : 'Send reset link'} <Icon name="arrow" size={16} /></button></form><div className="auth-switch">{authMode === 'Login' ? <><button onClick={() => setAuthMode('Forgot password')}>Forgot password?</button><span>New around here? <button onClick={() => setAuthMode('Register')}>Create an account</button></span></> : <span>Already have an account? <button onClick={() => setAuthMode('Login')}>Sign in</button></span>}</div><p className="auth-storage-note">Demo account is stored in this browser only. Use a non-sensitive password.</p></div></main>;
+  const AuthPage = () => <main className="auth-page"><div className="auth-card"><p className="eyebrow">Welcome to localbrand Cambodia</p><h1>{authMode}<span>.</span></h1><p>{authMode === 'Login' ? 'រីករាយដែលបានជួបលោកអ្នកម្តងទៀត។' : authMode === 'Register' ? 'បង្កើតគណនីថ្មីសម្រាប់ការទិញទំនិញ។' : 'យើងនឹងផ្ញើតំណភ្ជាប់ជួយលោកអ្នក។'}</p><form onSubmit={handleAuthSubmit}><label>អ៊ីមែល (Email address)<input name="email" required type="email" autoComplete="email" placeholder="you@example.com" /></label>{authMode !== 'Forgot password' && <label>ពាក្យសម្ងាត់ (Password)<input name="password" required type="password" minLength="8" autoComplete={authMode === 'Register' ? 'new-password' : 'current-password'} placeholder="យ៉ាងហោចណាស់ 8 តួអក្សរ" /></label>}{authMode === 'Register' && <label>បញ្ជាក់ពាក្យសម្ងាត់<input name="confirmPassword" required type="password" minLength="8" autoComplete="new-password" placeholder="បញ្ចូលពាក្យសម្ងាត់ម្តងទៀត" /></label>}<button className="button button-dark full-button">{authMode === 'Login' ? 'ចូលប្រើប្រាស់ (Sign in)' : authMode === 'Register' ? 'បង្កើតគណនី (Register)' : 'Send reset link'} <Icon name="arrow" size={16} /></button></form><div className="auth-switch">{authMode === 'Login' ? <><button onClick={() => setAuthMode('Forgot password')}>ភ្លេចពាក្យសម្ងាត់?</button><span>មិនទាន់មានគណនី? <button onClick={() => setAuthMode('Register')}>បង្កើតគណនី</button></span></> : <span>មានគណនីរួចហើយ? <button onClick={() => setAuthMode('Login')}>ចូលប្រើប្រាស់</button></span>}</div><p className="auth-storage-note">Demo account is stored in this browser only. Use a non-sensitive password.</p></div></main>;
 
-  const ConfirmationPage = () => <main className="confirmation-page"><div className="confirmation-mark"><Icon name="check" size={32} /></div><p className="eyebrow">A very good choice</p><h1>It's all yours<span>.</span></h1><p className="confirmation-copy">Thank you for your order. We are already getting the good things ready.</p><div className="confirmation-number"><span>YOUR ORDER NUMBER</span><strong>{orderNumber}</strong></div><button className="button button-dark" onClick={() => go('account')}>See your order <Icon name="arrow" size={16} /></button><button className="text-link confirmation-continue" onClick={() => openShop()}>Keep looking around <Icon name="arrow" size={16} /></button></main>;
+  const ConfirmationPage = () => (
+    <main className="confirmation-page">
+      <div className="confirmation-mark"><Icon name="check" size={32} /></div>
+      <p className="eyebrow">កុម្ម៉ង់បានជោគជ័យ · Order Confirmed</p>
+      <h1>អរគុណសម្រាប់ការកុម្ម៉ង់<span>!</span></h1>
+      <p className="confirmation-copy">
+        យើងខ្ញុំបានទទួលការកុម្ម៉ង់របស់អ្នករួចរាល់ហើយ និងកំពុងរៀបចំវេចខ្ចប់ផ្ញើជូនតាម {lastOrder?.shippingCarrier === 'VET' ? 'VET Express (វីរៈប៊ុនថាំ)' : 'J&T Express (JND)'}។
+      </p>
 
-  const AdminLoginPage = () => <main className="admin-login-page"><form className="admin-login-card" onSubmit={(event) => { event.preventDefault(); setAdminAuthenticated(true); go('admin'); }}><button type="button" className="admin-login-brand" onClick={() => go('home')}>localbrand<span>.</span></button><p className="eyebrow">STUDIO ADMIN</p><h1>Welcome back<span>.</span></h1><p className="admin-login-copy">Sign in to take a look around your store.</p><label>Email address<input required type="email" placeholder="you@yourstore.com" /></label><label>Password<input required type="password" minLength="8" placeholder="Your password" /></label><button className="button button-dark full-button">Sign in to your store <Icon name="arrow" size={16} /></button><small>Preview access only — connect secure authentication before launch.</small></form></main>;
+      <div className="confirmation-number">
+        <span>លេខកូដកុម្ម៉ង់ / ORDER NUMBER</span>
+        <strong>{lastOrder?.orderNumber || orderNumber}</strong>
+      </div>
+
+      <div className="order-details-card">
+        <div className="order-details-row">
+          <span>សេវាដឹកជញ្ជូន (Carrier)</span>
+          <span>{lastOrder?.shippingCarrier === 'VET' ? 'VET Express (វីរៈប៊ុនថាំ)' : 'J&T Express (JND)'}</span>
+        </div>
+        <div className="order-details-row">
+          <span>វិធីសាស្ត្រទូទាត់ (Payment)</span>
+          <span>{lastOrder?.paymentMethod === 'KHQR' ? 'KHQR (Bakong)' : lastOrder?.paymentMethod === 'ABA' ? 'ABA Mobile' : lastOrder?.paymentMethod === 'ACLEDA' ? 'ACLEDA Mobile' : 'Cash on Delivery (COD)'}</span>
+        </div>
+        <div className="order-details-row">
+          <span>អ្នកទទួលទំនិញ (Recipient)</span>
+          <span>{lastOrder?.customerName} ({lastOrder?.customerPhone})</span>
+        </div>
+        <div className="order-details-row">
+          <span>ទីតាំងដឹកជញ្ជូន (Destination)</span>
+          <span>{lastOrder?.customerAddress}, {lastOrder?.customerDistrict}, {lastOrder?.selectedProvince}</span>
+        </div>
+        <div className="order-details-row">
+          <span>ទឹកប្រាក់សរុប (Grand Total)</span>
+          <span style={{ color: 'var(--olive-dark)', fontSize: '15px' }}>{money(lastOrder?.total || 0)} ({toRiel(lastOrder?.total || 0)})</span>
+        </div>
+      </div>
+
+      {lastOrder?.paymentMethod !== 'COD' ? (
+        <div style={{ maxWidth: '340px', width: '100%', margin: '10px auto' }}>
+          <p style={{ fontSize: '13px', color: '#5b5952', marginBottom: '8px' }}>
+            📱 សូមស្កេន KHQR ខាងក្រោមដើម្បីបញ្ចប់ការទូទាត់៖
+          </p>
+          {KhqrCard({ amount: lastOrder?.total || 0, orderId: lastOrder?.orderNumber, method: lastOrder?.paymentMethod })}
+          <a href="https://t.me/localbrand_kh" target="_blank" rel="noreferrer" className="telegram-cta">
+            ✈️ ផ្ញើស្លីបតាម Telegram (@localbrand_kh)
+          </a>
+        </div>
+      ) : (
+        <div className="secure-note" style={{ fontSize: '13.5px', marginTop: '16px', color: '#2d7a48' }}>
+          💵 <strong>សេវាបង់ប្រាក់ពេលទទួល (COD):</strong> សូមត្រៀមប្រាក់សុទ្ធ {money(lastOrder?.total || 0)} ({toRiel(lastOrder?.total || 0)}) ជូនបុគ្គលិកដឹកជញ្ជូន {lastOrder?.shippingCarrier === 'VET' ? 'VET Express' : 'J&T Express'} ពេលទំនិញមកដល់។
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '24px' }}>
+        <button className="button button-dark" onClick={() => go('account')}>មើលការកុម្ម៉ង់ (My Orders)</button>
+        <button className="text-link confirmation-continue" onClick={() => openShop()}>ទិញទំនិញបន្ត <Icon name="arrow" size={16} /></button>
+      </div>
+    </main>
+  );
+
+  const AdminLoginPage = () => <main className="admin-login-page"><form className="admin-login-card" onSubmit={(event) => { event.preventDefault(); setAdminAuthenticated(true); go('admin'); }}><button type="button" className="admin-login-brand" onClick={() => go('home')}>localbrand<span>.</span></button><p className="eyebrow">STUDIO ADMIN · CAMBODIA</p><h1>Welcome back<span>.</span></h1><p className="admin-login-copy">Sign in to take a look around your store.</p><label>Email address<input required type="email" placeholder="admin@localbrand.com.kh" /></label><label>Password<input required type="password" minLength="8" placeholder="Your password" /></label><button className="button button-dark full-button">Sign in to your store <Icon name="arrow" size={16} /></button><small>Preview access only — connect secure authentication before launch.</small></form></main>;
 
   const AdminPage = () => {
     const data = {
       Products: { description: 'A thoughtful edit, from our studio to the world.', columns: ['Product', 'Category', 'Price', 'Stock', 'Status'], rows: products.map((p) => [p.name, p.category, money(p.price), p.stock, p.tag]) },
       Categories: { description: 'The little collections that make up our world.', columns: ['Category', 'Products', 'Visibility'], rows: [['Bags', 3, 'Published'], ['Clothing', 1, 'Published'], ['Shoes', 2, 'Published'], ['Accessories', 2, 'Published'], ['Travel', 1, 'Published']] },
-      Orders: { description: 'A little overview of what is on its way.', columns: ['Order', 'Customer', 'Date', 'Total', 'Status'], rows: [['#AT-10481', 'Olivia Martin', 'Today, 10:42 am', '$273.00', 'Processing'], ['#AT-10480', 'James Wilson', 'Today, 09:18 am', '$145.00', 'Confirmed'], ['#AT-10479', 'Sofia Chen', 'Yesterday', '$98.00', 'Shipped'], ['#AT-10478', 'Amelia Brown', 'Oct 01, 2026', '$326.00', 'Delivered']] },
-      Customers: { description: 'The lovely people who make it all possible.', columns: ['Customer', 'Email', 'Orders', 'Spent'], rows: [['Olivia Martin', 'olivia@example.com', 3, '$482.00'], ['James Wilson', 'james@example.com', 1, '$145.00'], ['Sofia Chen', 'sofia@example.com', 2, '$226.00'], ['Amelia Brown', 'amelia@example.com', 5, '$814.00']] },
-      Payments: { description: 'A clear picture of every payment.', columns: ['Payment', 'Order', 'Date', 'Amount', 'Status'], rows: [['PAY-2091', '#AT-10481', 'Today', '$273.00', 'Paid'], ['PAY-2090', '#AT-10480', 'Today', '$145.00', 'Paid'], ['PAY-2089', '#AT-10479', 'Yesterday', '$98.00', 'Pending'], ['PAY-2088', '#AT-10478', 'Oct 01', '$326.00', 'Paid']] },
-      Reviews: { description: 'A few kind words, and a couple waiting for a look.', columns: ['Customer', 'Product', 'Rating', 'Date', 'Status'], rows: [['Emma W.', 'The Everyday Tote', '★★★★★', 'Today', 'Published'], ['Olivia M.', 'Everyday Mini Crossbody', '★★★★☆', 'Yesterday', 'Pending'], ['Sophie R.', 'Classic Court Sneaker', '★★★★★', 'Sep 29', 'Published']] },
+      Orders: { description: 'បញ្ជីកុម្ម៉ង់ទំនិញដែលកំពុងរៀបចំ និងដឹកជញ្ជូនតាម VET & J&T Express។', columns: ['Order', 'Customer', 'Carrier', 'Payment', 'Total', 'Status'], rows: [['#VET-KH10481', 'ចាន់ សុខា (Phnom Penh)', 'VET Express', 'ABA KHQR', '$273.00', 'Processing'], ['#JT-KH10480', 'រិន សុភា (Siem Reap)', 'J&T Express', 'ACLEDA', '$145.00', 'Confirmed'], ['#VET-KH10479', 'កែវ វឌ្ឍនៈ (Battambang)', 'VET Express', 'KHQR', '$98.00', 'Shipped'], ['#JT-KH10478', 'ជា បុប្ផា (Kampot)', 'J&T Express', 'COD', '$326.00', 'Delivered']] },
+      Customers: { description: 'អតិថិជនដែលបានបញ្ជាទិញទំនិញ។', columns: ['Customer', 'Phone/Telegram', 'Location', 'Spent'], rows: [['ចាន់ សុខា', '012 888 999', 'Phnom Penh', '$482.00'], ['រិន សុភា', '098 777 666', 'Siem Reap', '$145.00'], ['កែវ វឌ្ឍនៈ', '088 555 444', 'Battambang', '$226.00'], ['ជា បុប្ផា', '070 333 222', 'Kampot', '$814.00']] },
+      Payments: { description: 'ប្រព័ន្ធទូទាត់ប្រាក់ KHQR, ABA, ACLEDA និង COD។', columns: ['Payment Ref', 'Method', 'Date', 'Amount', 'Status'], rows: [['PAY-KH2091', 'ABA KHQR', 'Today', '$273.00', 'Paid'], ['PAY-KH2090', 'ACLEDA Mobile', 'Today', '$145.00', 'Paid'], ['PAY-KH2089', 'Bakong KHQR', 'Yesterday', '$98.00', 'Paid'], ['PAY-KH2088', 'Cash on Delivery', 'Oct 01', '$326.00', 'Paid']] },
+      Reviews: { description: 'មតិកែលម្អពីអតិថិជន។', columns: ['Customer', 'Product', 'Rating', 'Date', 'Status'], rows: [['សុខា ភ្នំពេញ', 'The Everyday Tote', '★★★★★', 'Today', 'Published'], ['វិសាល សៀមរាប', 'Everyday Mini Crossbody', '★★★★☆', 'Yesterday', 'Pending'], ['វណ្ណដា បាត់ដំបង', 'Classic Court Sneaker', '★★★★★', 'Sep 29', 'Published']] },
       Promotions: { description: "Small ways to make someone's day.", columns: ['Code', 'Offer', 'Usage', 'Expires', 'Status'], rows: [['WELCOME10', '10% off first order', '126 uses', 'No expiry', 'Active'], ['AUTUMN15', '15% off selected pieces', '48 uses', 'Oct 31, 2026', 'Active']] },
       CMS: { description: 'Words, images, and little details around the shop.', columns: ['Page', 'Last updated', 'Visibility'], rows: [['Home banner', 'Oct 04, 2026', 'Published'], ['About us', 'Sep 28, 2026', 'Published'], ['Terms & conditions', 'Sep 14, 2026', 'Published'], ['Privacy policy', 'Sep 14, 2026', 'Published'], ['Contact us', 'Aug 30, 2026', 'Published']] },
-      Reports: { description: 'The bigger picture, at a glance.', columns: ['Report', 'Period', 'Result', 'Change'], rows: [['Sales report', 'Last 30 days', '$24,580.00', '+12.8%'], ['Order report', 'Last 30 days', '186 orders', '+8.2%'], ['Product report', 'Best seller', 'The Everyday Tote', '42 sold'], ['Customer report', 'Returning customers', '38%', '+4.1%']] },
-      Settings: { description: 'All the little things that make this shop yours.', columns: ['Setting', 'Current value', 'Status'], rows: [['Store settings', 'Localbrand · USD', 'Configured'], ['Admin profile', 'hello@localbrand.example', 'Active'], ['Users & roles', '2 team members', 'Manage'], ['Payment settings', 'Card · PayPal', 'Configured'], ['Shipping settings', 'Free over $150', 'Configured']] },
+      Reports: { description: 'The bigger picture, at a glance.', columns: ['Report', 'Period', 'Result', 'Change'], rows: [['Sales report', 'Last 30 days', '$24,580.00 (៛100,778,000)', '+12.8%'], ['Order report', 'Last 30 days', '186 orders', '+8.2%'], ['VET vs J&T', 'Delivery split', '62% VET · 38% J&T', 'Balanced'], ['Payment ratio', 'KHQR vs COD', '74% KHQR/ABA · 26% COD', '+6.2%']] },
+      Settings: { description: 'ការកំណត់ទូទៅសម្រាប់ហាងក្នុងប្រទេសកម្ពុជា។', columns: ['Setting', 'Current value', 'Status'], rows: [['Store settings', 'Localbrand Cambodia (USD & KHR)', 'Configured'], ['Admin profile', 'hello@localbrand.com.kh', 'Active'], ['Payment methods', 'KHQR (Bakong) · ABA · ACLEDA · COD', 'Configured'], ['Delivery partners', 'VET Express & J&T Express (25 Provinces)', 'Configured'], ['Free shipping', 'Free over $50 (25 Provinces)', 'Configured']] },
     };
     const sectionData = data[adminSection];
     return <div className="admin-layout"><aside className="admin-sidebar"><button className="admin-brand" onClick={() => go('home')}>localbrand<span>.</span><small>STUDIO ADMIN</small></button><p className="admin-sidebar-label">WORKSPACE</p><nav>{adminLinks.map(([icon, label]) => <button key={label} className={adminSection === label ? 'admin-link-active' : ''} onClick={() => setAdminSection(label)}><span className="admin-link-icon">{icon === 'Overview' ? '◫' : icon === 'Products' ? '◇' : icon === 'Categories' ? '▦' : icon === 'Orders' ? '▤' : icon === 'Customers' ? '♙' : icon === 'Payments' ? '＄' : icon === 'Reviews' ? '☆' : icon === 'Promotions' ? '%' : icon === 'CMS' ? '▧' : icon === 'Reports' ? '▥' : '⚙'}</span>{label}{label === 'Orders' && <span className="admin-nav-count">4</span>}</button>)}</nav><div className="admin-sidebar-bottom"><div className="admin-profile"><span className="admin-avatar">A</span><span><strong>Alex Morgan</strong><small>Store administrator</small></span><span>···</span></div><button className="back-to-store" onClick={() => go('home')}>←&nbsp; Back to store</button></div></aside><main className="admin-main"><header className="admin-topbar"><div className="admin-breadcrumb">Studio <span>/</span> {adminSection}</div><div className="admin-top-actions"><span className="admin-store-status"><i /> Store is live</span><button onClick={() => go('home')}>View your store ↗</button><span className="admin-top-avatar">A</span></div></header><div className="admin-content"><div className="admin-page-title"><div><p className="eyebrow">SUNDAY, OCTOBER 4, 2026</p><h1>{adminSection === 'Overview' ? 'A good morning, Alex' : adminSection}<span>.</span></h1><p>{adminSection === 'Overview' ? 'Here’s what’s happening in your little corner of the internet.' : sectionData?.description}</p></div><button className="admin-date-button">↗&nbsp; Last 30 days&nbsp;⌄</button></div>{adminSection === 'Overview' ? <><div className="admin-metrics">{[['Total sales', '$24,580', '+12.8%', '01'], ['Orders', '186', '+8.2%', '02'], ['Products', '42', '4 low in stock', '03'], ['Customers', '1,284', '+18.4%', '04']].map(([label, number, change, index]) => <article className="admin-metric" key={label}><span>{label}<small>{index}</small></span><strong>{number}</strong><p className={change.includes('low') ? 'metric-warning' : ''}>{change.includes('low') ? '●' : '↗'} &nbsp;{change} <span>vs last month</span></p></article>)}</div><div className="admin-dashboard-grid"><section className="admin-panel sales-panel"><div className="admin-panel-heading"><div><h2>Sales over time</h2><p>A little upward momentum. We like to see it.</p></div><button>Weekly ⌄</button></div><div className="sales-chart"><div className="chart-y-labels"><span>$8k</span><span>$6k</span><span>$4k</span><span>$2k</span><span>$0</span></div><div className="chart-plot"><div className="chart-gridlines"><i /><i /><i /><i /><i /></div><svg viewBox="0 0 700 210" preserveAspectRatio="none" role="img" aria-label="Sales have risen over the past six months"><defs><linearGradient id="salesFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#65795f" stopOpacity=".2" /><stop offset="100%" stopColor="#65795f" stopOpacity="0" /></linearGradient></defs><path d="M0 172 C45 163 60 152 100 159 S150 130 190 140 S235 110 280 125 S330 91 370 104 S430 79 470 89 S525 47 560 68 S620 33 660 42 S685 20 700 24 L700 210 L0 210Z" fill="url(#salesFill)" /><path d="M0 172 C45 163 60 152 100 159 S150 130 190 140 S235 110 280 125 S330 91 370 104 S430 79 470 89 S525 47 560 68 S620 33 660 42 S685 20 700 24" fill="none" stroke="#65795f" strokeWidth="3" vectorEffect="non-scaling-stroke" /></svg><div className="chart-x-labels"><span>Sep 05</span><span>Sep 10</span><span>Sep 15</span><span>Sep 20</span><span>Sep 25</span><span>Sep 30</span><span>Oct 04</span></div></div></div></section><section className="admin-panel top-products"><div className="admin-panel-heading"><div><h2>Lovely little bestsellers</h2><p>Your most-loved pieces this month</p></div><button onClick={() => setAdminSection('Products')}>View all →</button></div>{products.slice(0, 4).map((product, index) => <div className="top-product" key={product.id}><span className="top-product-rank">0{index + 1}</span><img src={product.image} alt="" /><div><strong>{product.name}</strong><small>{product.category} · {product.stock} in stock</small></div><span>{money(product.price)}</span></div>)}</section></div><section className="admin-panel recent-orders"><div className="admin-panel-heading"><div><h2>Recent orders</h2><p>The latest good things going out.</p></div><button onClick={() => setAdminSection('Orders')}>All orders →</button></div>{AdminTable({ data: data.Orders })}</section></> : <section className="admin-panel admin-table-panel"><div className="admin-panel-heading"><div><h2>{adminSection === 'Products' ? 'All products' : adminSection === 'Orders' ? 'All orders' : `All ${adminSection.toLowerCase()}`}</h2><p>{sectionData?.description}</p></div><div className="admin-table-actions"><input aria-label={`Search ${adminSection}`} placeholder="⌕  Search..." /><button className="admin-add-button" onClick={() => setNotice(adminSection === 'Products' ? 'Product editor is ready to connect to your store backend.' : `${adminSection} management is ready to connect to your store backend.`)}>＋&nbsp; {adminSection === 'Products' ? 'Add product' : adminSection === 'Categories' ? 'Add category' : adminSection === 'Promotions' ? 'Create promotion' : 'Export'}</button></div></div>{sectionData && AdminTable({ data: sectionData })}</section>}</div></main></div>;
