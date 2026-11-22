@@ -75,6 +75,12 @@ function App() {
   const [orderNumber, setOrderNumber] = useState('');
   const [authMode, setAuthMode] = useState('Login');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [fontTheme, setFontTheme] = useState(() => readSaved('localbrand-font-theme', 'minimalist'));
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-font', fontTheme);
+    localStorage.setItem('localbrand-font-theme', JSON.stringify(fontTheme));
+  }, [fontTheme]);
 
   useEffect(() => { localStorage.setItem('localbrand-cart', JSON.stringify(cart)); }, [cart]);
   useEffect(() => { localStorage.setItem('localbrand-wishlist', JSON.stringify(wishlist)); }, [wishlist]);
@@ -382,6 +388,32 @@ function App() {
         </div>
       </section>
     </div>}
+    {page !== 'admin' && page !== 'admin-login' && (
+      <div className="font-theme-bar" role="toolbar" aria-label="Font style selection">
+        <span className="font-theme-label">Font:</span>
+        <button
+          type="button"
+          className={`font-theme-btn ${fontTheme === 'editorial' ? 'active' : ''}`}
+          onClick={() => { setFontTheme('editorial'); setNotice('Font: Editorial Elegance (Cormorant Garamond & Jakarta Sans)'); }}
+        >
+          Editorial Elegance
+        </button>
+        <button
+          type="button"
+          className={`font-theme-btn ${fontTheme === 'minimalist' ? 'active' : ''}`}
+          onClick={() => { setFontTheme('minimalist'); setNotice('Font: Clean Minimalist (Outfit Sans)'); }}
+        >
+          Clean Minimalist
+        </button>
+        <button
+          type="button"
+          className={`font-theme-btn ${fontTheme === 'couture' ? 'active' : ''}`}
+          onClick={() => { setFontTheme('couture'); setNotice('Font: Haute Couture (Italiana & Outfit)'); }}
+        >
+          Haute Couture
+        </button>
+      </div>
+    )}
     {notice && <div className="toast" role="status"><span>✳</span>{notice}<button aria-label="Dismiss notification" onClick={() => setNotice('')}><Icon name="close" size={15} /></button></div>}
   </>;
 }
